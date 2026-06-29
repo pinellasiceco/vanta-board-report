@@ -25,7 +25,7 @@ export function formatFrameworkStatus(frameworks, controls) {
     const fwControls = controls.byFramework[fw.id] || {};
     const passing = fwControls.passing ?? fw.controlsPassing ?? 0;
     const total = fwControls.total ?? fw.controlsTotal ?? 0;
-    const rate = total > 0 ? Math.round((passing / total) * 10) / 10 * 10 : 0;
+    const rate = total > 0 ? Math.round((passing / total) * 1000) / 10 : 0;
     const status = rate >= 90 ? 'PASSING' : rate >= 70 ? 'NEEDS ATTENTION' : 'AT RISK';
     return {
       id: fw.id,
@@ -33,7 +33,7 @@ export function formatFrameworkStatus(frameworks, controls) {
       shortName: fw.shortName || fw.name,
       passing,
       total,
-      rate: Math.round(rate * 10) / 10,
+      rate,
       status,
       nextAuditDate: fw.nextAuditDate || null,
       certificationDate: fw.certificationDate || null,
