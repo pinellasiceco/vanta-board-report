@@ -1,13 +1,13 @@
 import express from 'express';
 import { fileURLToPath } from 'url';
-import { join, dirname, basename } from 'path';
+import { join, dirname } from 'path';
 import { readdir, stat } from 'fs/promises';
 import { createReadStream } from 'fs';
 import logger from '../utils/logger.js';
 import stateManager from '../state/stateManager.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPORTS_DIR = join(__dirname, '../../data/reports');
+const REPORTS_DIR = join(process.cwd(), 'vanta-reports');
 
 export function createDashboardServer(generatorFn) {
   const app = express();
@@ -51,9 +51,7 @@ export function createDashboardServer(generatorFn) {
     const jobId = Date.now().toString();
     res.json({ jobId });
 
-    currentStatus = { stage: 'running', steps: [], error: null, jobId, files: null };
-
-    const steps = [
+    const stepLabels = [
       'Connecting to Vanta API',
       'Collecting compliance data',
       'Calculating posture score',
@@ -63,13 +61,20 @@ export function createDashboardServer(generatorFn) {
       'Reports ready for download',
     ];
 
-    steps.forEach(s => currentStatus.steps.push({ step: s, status: 'pending' }));
+    currentStatus = {
+      stage: 'running',
+      steps: stepLabels.map(s => ({ step: s, status: 'pending' })),
+      error: null,
+      jobId,
+      files: null,
+    };
     broadcast('progress', currentStatus);
 
     try {
-      const files = await generatorFn({ quarter, year, companyName, useMock }, (step, status) => {
-        updateStep(step, status);
-      });
+      const files = await generatorFn(
+        { quarter, year, companyName, useMock },
+        (step, status) => updateStep(step, status)
+      );
       currentStatus.stage = 'complete';
       currentStatus.files = files;
       broadcast('complete', { files });
@@ -121,10 +126,14 @@ export function createDashboardServer(generatorFn) {
       const result = await client.testConnection();
       return res.json({ ...result, mode: 'mock' });
     }
-    const { VantaClient } = await import('../api/vantaClient.js');
-    const client = new VantaClient();
-    const result = await client.testConnection();
-    res.json({ ...result, mode: 'live' });
+    try {
+      const { VantaClient } = await import('../api/vantaClient.js');
+      const client = new VantaClient();
+      const result = await client.testConnection();
+      res.json({ ...result, mode: 'live' });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
   });
 
   return {
@@ -132,7 +141,7 @@ export function createDashboardServer(generatorFn) {
     start(port) {
       return new Promise(resolve => {
         const server = app.listen(port, () => {
-          logger.info(`Dashboard running at http://localhost:${port}`);
+          logger.info(`Dashboard listening on port ${port}`);
           resolve(server);
         });
       });
