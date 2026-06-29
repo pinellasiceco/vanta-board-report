@@ -1,0 +1,143 @@
+import express from 'express';
+import { fileURLToPath } from 'url';
+import { join, dirname, basename } from 'path';
+import { readdir, stat } from 'fs/promises';
+import { createReadStream } from 'fs';
+import logger from '../utils/logger.js';
+import stateManager from '../state/stateManager.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const REPORTS_DIR = join(__dirname, '../../data/reports');
+
+export function createDashboardServer(generatorFn) {
+  const app = express();
+  app.use(express.json());
+  app.use(express.static(join(__dirname, 'public')));
+
+  const clients = new Set();
+  let currentStatus = { stage: 'idle', steps: [], error: null };
+
+  function broadcast(event, data) {
+    const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+    for (const res of clients) res.write(msg);
+  }
+
+  function updateStep(step, status) {
+    const existing = currentStatus.steps.find(s => s.step === step);
+    if (existing) {
+      existing.status = status;
+    } else {
+      currentStatus.steps.push({ step, status });
+    }
+    broadcast('progress', currentStatus);
+  }
+
+  app.get('/api/status', (req, res) => {
+    res.json(currentStatus);
+  });
+
+  app.get('/api/events', (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+    clients.add(res);
+    req.on('close', () => clients.delete(res));
+    res.write(`event: connected\ndata: {}\n\n`);
+  });
+
+  app.post('/api/generate', async (req, res) => {
+    const { quarter, year, companyName, useMock } = req.body;
+    const jobId = Date.now().toString();
+    res.json({ jobId });
+
+    currentStatus = { stage: 'running', steps: [], error: null, jobId, files: null };
+
+    const steps = [
+      'Connecting to Vanta API',
+      'Collecting compliance data',
+      'Calculating posture score',
+      'Generating board narratives with Claude',
+      'Building PDF report',
+      'Building PowerPoint presentation',
+      'Reports ready for download',
+    ];
+
+    steps.forEach(s => currentStatus.steps.push({ step: s, status: 'pending' }));
+    broadcast('progress', currentStatus);
+
+    try {
+      const files = await generatorFn({ quarter, year, companyName, useMock }, (step, status) => {
+        updateStep(step, status);
+      });
+      currentStatus.stage = 'complete';
+      currentStatus.files = files;
+      broadcast('complete', { files });
+    } catch (err) {
+      logger.error(`Generation failed: ${err.message}`);
+      currentStatus.stage = 'error';
+      currentStatus.error = err.message;
+      broadcast('error', { message: err.message });
+    }
+  });
+
+  app.get('/api/reports', async (req, res) => {
+    try {
+      const files = await readdir(REPORTS_DIR);
+      const reportFiles = files.filter(f => f.endsWith('.pdf') || f.endsWith('.pptx'));
+      const reports = await Promise.all(
+        reportFiles.map(async f => {
+          const s = await stat(join(REPORTS_DIR, f));
+          return { name: f, size: s.size, created: s.birthtime };
+        })
+      );
+      res.json(reports.sort((a, b) => new Date(b.created) - new Date(a.created)));
+    } catch {
+      res.json([]);
+    }
+  });
+
+  app.get('/api/history', async (req, res) => {
+    try {
+      const history = await stateManager.listHistory();
+      res.json(history);
+    } catch {
+      res.json([]);
+    }
+  });
+
+  app.get('/api/download/:filename', (req, res) => {
+    const filename = req.params.filename.replace(/\.\./g, '');
+    const filePath = join(REPORTS_DIR, filename);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    createReadStream(filePath).pipe(res);
+  });
+
+  app.post('/api/test-connection', async (req, res) => {
+    const { useMock } = req.body;
+    if (useMock) {
+      const { MockVantaClient } = await import('../api/mockVantaClient.js');
+      const client = new MockVantaClient();
+      const result = await client.testConnection();
+      return res.json({ ...result, mode: 'mock' });
+    }
+    const { VantaClient } = await import('../api/vantaClient.js');
+    const client = new VantaClient();
+    const result = await client.testConnection();
+    res.json({ ...result, mode: 'live' });
+  });
+
+  return {
+    app,
+    start(port) {
+      return new Promise(resolve => {
+        const server = app.listen(port, () => {
+          logger.info(`Dashboard running at http://localhost:${port}`);
+          resolve(server);
+        });
+      });
+    },
+    updateStep,
+    broadcast,
+  };
+}

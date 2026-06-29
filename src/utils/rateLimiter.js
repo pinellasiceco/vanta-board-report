@@ -1,6 +1,5 @@
 import Bottleneck from 'bottleneck';
 
-// 45 req/min max to stay under Vanta's 50 req/min management limit
 export const managementLimiter = new Bottleneck({
   reservoir: 45,
   reservoirRefreshAmount: 45,
