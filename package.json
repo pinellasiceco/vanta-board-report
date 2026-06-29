@@ -4,6 +4,16 @@
   "description": "Generate board-ready compliance reports from Vanta data",
   "type": "module",
   "main": "index.js",
+  "bin": {
+    "vanta-board-report": "./index.js"
+  },
+  "files": [
+    "index.js",
+    "src/",
+    "templates/",
+    "data/mock/",
+    ".env.example"
+  ],
   "scripts": {
     "start": "node index.js",
     "generate": "node index.js generate",
@@ -26,5 +36,10 @@
   },
   "engines": {
     "node": ">=20.0.0"
-  }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": ["vanta", "compliance", "board-report", "SOC2", "PDF", "PowerPoint"],
+  "license": "MIT"
 }
