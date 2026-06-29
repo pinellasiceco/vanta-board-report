@@ -22,12 +22,14 @@ export function createDashboardServer(generatorFn) {
     for (const res of clients) res.write(msg);
   }
 
+  // UI expects statuses: 'pending', 'active', 'done', 'error'
   function updateStep(step, status) {
+    const uiStatus = status === 'running' ? 'active' : status === 'complete' ? 'done' : status;
     const existing = currentStatus.steps.find(s => s.step === step);
     if (existing) {
-      existing.status = status;
+      existing.status = uiStatus;
     } else {
-      currentStatus.steps.push({ step, status });
+      currentStatus.steps.push({ step, status: uiStatus });
     }
     broadcast('progress', currentStatus);
   }
@@ -71,10 +73,27 @@ export function createDashboardServer(generatorFn) {
     broadcast('progress', currentStatus);
 
     try {
-      const files = await generatorFn(
+      await generatorFn(
         { quarter, year, companyName, useMock },
         (step, status) => updateStep(step, status)
       );
+
+      // Load actual files from disk for download list
+      let files = [];
+      try {
+        const allFiles = await readdir(REPORTS_DIR);
+        files = await Promise.all(
+          allFiles
+            .filter(f => f.endsWith('.pdf') || f.endsWith('.pptx'))
+            .map(async f => {
+              const s = await stat(join(REPORTS_DIR, f));
+              return { name: f, size: s.size, created: s.birthtime };
+            })
+        );
+        files.sort((a, b) => new Date(b.created) - new Date(a.created));
+        files = files.slice(0, 4); // most recent 2 runs
+      } catch { /* ignore */ }
+
       currentStatus.stage = 'complete';
       currentStatus.files = files;
       broadcast('complete', { files });
