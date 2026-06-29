@@ -7,7 +7,6 @@ import { mkdir } from 'fs/promises';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = join(__dirname, '..');
 
-// Load .env from cwd first, then package root
 dotenv.config({ path: join(process.cwd(), '.env') });
 dotenv.config({ path: join(pkgRoot, '.env') });
 
@@ -30,10 +29,10 @@ async function ensureOutputDir() {
 }
 
 async function runGeneration(options = {}) {
-  const useMock = options.mock || !process.env.VANTA_CLIENT_ID;
+  const useMock = options.mock || options.useMock || !process.env.VANTA_CLIENT_ID;
   const quarter = options.quarter || `Q${Math.ceil((new Date().getMonth() + 1) / 3)}`;
   const year = String(options.year || new Date().getFullYear());
-  const companyName = process.env.COMPANY_NAME || 'Your Company';
+  const companyName = options.companyName || process.env.COMPANY_NAME || 'Your Company';
 
   logger.info(`Starting report generation — ${quarter} ${year} (${useMock ? 'mock' : 'live'} data)`);
 
@@ -99,9 +98,14 @@ program
   .action(async (opts) => {
     try {
       if (opts.dashboard) {
-        const server = await createDashboardServer(() => runGeneration(opts));
-        logger.info(`Dashboard running at http://localhost:${server.port}`);
-        await open(`http://localhost:${server.port}`);
+        const dashboard = createDashboardServer(() => runGeneration(opts));
+        const PORT = parseInt(process.env.PORT || '3000');
+        const server = await dashboard.start(PORT);
+        const port = server.address().port;
+        const url = `http://localhost:${port}`;
+        logger.info(`Dashboard running at ${url}`);
+        await open(url);
+        // Keep process alive
       } else {
         await runGeneration(opts);
       }
