@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vanta Board Report Generator</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="header">
+  <div class="header-brand">
+    <div class="header-logo">📊</div>
+    <div>
+      <h1>Vanta Board Report Generator</h1>
+      <p>Generate board-ready compliance reports from your Vanta data</p>
+    </div>
+  </div>
+  <span class="header-badge">v1.0</span>
+</header>
+
+<main class="main">
+
+  <!-- CONNECTION STATUS -->
+  <div class="card">
+    <div class="card-title">API Connection Status</div>
+    <div class="connection-grid">
+      <div class="conn-item">
+        <span class="conn-label">Vanta API</span>
+        <span class="conn-badge pending" id="vanta-status">
+          <span class="conn-dot gray"></span>
+          <span id="vanta-status-text">Checking...</span>
+        </span>
+      </div>
+      <div class="conn-item">
+        <span class="conn-label">Claude API</span>
+        <span class="conn-badge pending" id="claude-status">
+          <span class="conn-dot gray"></span>
+          <span id="claude-status-text">Checking...</span>
+        </span>
+      </div>
+    </div>
+    <div class="test-btn">
+      <button class="btn btn-outline btn-sm" onclick="testConnection()">&#8635; Re-test Connection</button>
+    </div>
+  </div>
+
+  <!-- REPORT CONFIGURATION -->
+  <div class="card">
+    <div class="card-title">Report Configuration</div>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column: span 2">
+        <label>Company Name</label>
+        <input type="text" id="company-name" placeholder="Acme SaaS Inc">
+      </div>
+      <div class="form-group">
+        <label>Quarter</label>
+        <select id="quarter">
+          <option value="Q1">Q1</option>
+          <option value="Q2">Q2</option>
+          <option value="Q3" selected>Q3</option>
+          <option value="Q4">Q4</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Year</label>
+        <select id="year">
+          <option value="2025">2025</option>
+          <option value="2026" selected>2026</option>
+          <option value="2027">2027</option>
+        </select>
+      </div>
+      <div class="form-group" style="grid-column: span 2">
+        <label>Data Source</label>
+        <div class="toggle-row">
+          <label class="toggle">
+            <input type="checkbox" id="use-mock" checked>
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="toggle-label" id="mock-label">Use Mock Data (demo mode)</span>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top: 18px">
+      <button class="btn btn-primary btn-full" id="generate-btn" onclick="generate()">
+        <span id="generate-icon">📊</span>
+        <span id="generate-text">Generate Board Report</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- PROGRESS PANEL -->
+  <div class="card progress-panel" id="progress-panel">
+    <div class="card-title">Generation Progress</div>
+    <div class="progress-steps" id="progress-steps"></div>
+  </div>
+
+  <!-- DOWNLOAD PANEL -->
+  <div class="card download-panel" id="download-panel">
+    <div class="card-title">Reports Ready for Download</div>
+    <div class="download-grid" id="download-grid"></div>
+  </div>
+
+  <!-- SNAPSHOT -->
+  <div class="card" id="snapshot-panel" style="display:none">
+    <div class="card-title">Compliance Snapshot</div>
+    <div class="snapshot-grid" id="snapshot-grid"></div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="card">
+    <div class="card-title">Quarterly History</div>
+    <div id="history-container">
+      <div class="empty-state">No history yet — generate your first report to start tracking trends.</div>
+    </div>
+  </div>
+
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

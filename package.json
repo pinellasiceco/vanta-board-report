@@ -1,0 +1,30 @@
+{
+  "name": "vanta-board-report",
+  "version": "1.0.0",
+  "description": "Generate board-ready compliance reports from Vanta data",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "generate": "node index.js generate",
+    "generate:mock": "node index.js generate --mock",
+    "dashboard": "node index.js generate --mock",
+    "test-connection": "node index.js test-connection",
+    "history": "node index.js history"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.0",
+    "axios": "^1.7.9",
+    "bottleneck": "^2.19.5",
+    "commander": "^12.1.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "open": "^10.1.0",
+    "pptxgenjs": "^3.12.0",
+    "puppeteer": "^23.11.1",
+    "winston": "^3.17.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
